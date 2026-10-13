@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { runDemo, MODE } from '../services/api.js';
+import { runDemo, runAnalysis, MODE, IS_LIVE_API } from '../services/api.js';
 
 import CinematicHero       from '../components/CinematicHero.jsx';
+import SubmitPanel         from '../components/SubmitPanel.jsx';
 import AgentStatementPanel from '../components/AgentStatementPanel.jsx';
 import SummaryCards       from '../components/SummaryCards.jsx';
 import ClaimsTable        from '../components/ClaimsTable.jsx';
@@ -45,6 +46,31 @@ export default function Dashboard() {
       const data = await runDemo();
       setState({ status: 'done', data, error: null });
       // Smoothly scroll down to results after running
+      setTimeout(() => {
+        const resultsEl = document.getElementById('audit-results');
+        if (resultsEl) {
+          resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } catch (err) {
+      setState({ status: 'error', data: null, error: err });
+    }
+  }, []);
+
+  const handleCustomSubmit = useCallback(async (statementText, toolEvents, loggingComplete) => {
+    setState({ status: 'loading', data: null, error: null });
+    try {
+      const data = await runAnalysis({
+        statement: {
+          id: `stmt-${Date.now().toString(36)}`,
+          text: statementText,
+          timestamp: new Date().toISOString(),
+          agentId: 'user-agent-custom',
+        },
+        toolEvents,
+        loggingComplete,
+      });
+      setState({ status: 'done', data, error: null });
       setTimeout(() => {
         const resultsEl = document.getElementById('audit-results');
         if (resultsEl) {
@@ -164,6 +190,14 @@ export default function Dashboard() {
         <CinematicHero
           onRunDemo={handleRunDemo}
           isRunning={status === 'loading'}
+        />
+
+        {/* Custom Audit Run & Pipeline Launcher */}
+        <SubmitPanel
+          onSubmit={handleCustomSubmit}
+          onRunDemo={handleRunDemo}
+          isRunning={status === 'loading'}
+          isLive={IS_LIVE_API}
         />
 
         {/* Loading State */}
