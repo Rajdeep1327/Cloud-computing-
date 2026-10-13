@@ -2,3 +2,13 @@
 *.py[cod]
 .venv/
 .env
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+
