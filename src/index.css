@@ -1,31 +1,32 @@
 @import "tailwindcss";
 
+/* ── Light Cyberpunk Base & Variables ────────────────────────────── */
 :root {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark;
-  color: #F1F5FF;
-  background-color: #080B14;
+  color-scheme: light;
+  color: #0F172A;
+  background-color: #F8FAFC;
+
+  /* Theme Tokens */
+  --bg-icy: #F8FAFC;
+  --bg-surface: rgba(255, 255, 255, 0.92);
+  --bg-surface-elevated: #FFFFFF;
+  --border-tech: #E2E8F0;
+  --border-tech-highlight: #CBD5E1;
+  --cyber-cyan: #00C2D6;
+  --cyber-cyan-bright: #00E5FF;
+  --cyber-cyan-dim: #E0F7FA;
+  --cyber-ultraviolet: #6366F1;
+  --cyber-magenta: #EC4899;
+  --cyber-text-main: #0F172A;
+  --cyber-text-muted: #475569;
+  --cyber-text-dim: #94A3B8;
 }
 
 code, kbd, samp, pre, .font-mono {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-}
-
-/* Midnight Intelligence Theme Variables */
-:root {
-  --bg-midnight: #080B14;
-  --bg-panel: #101625;
-  --bg-panel-hover: #151D30;
-  --bg-panel-secondary: #0D121F;
-  --border-subtle: #222B40;
-  --border-subtle-hover: #2E3A56;
-  --electric-indigo: #7667FF;
-  --bright-cyan: #43D9F5;
-  --text-primary: #F1F5FF;
-  --text-secondary: #98A5BD;
-  --text-muted: #5E6C84;
 }
 
 * {
@@ -35,61 +36,159 @@ code, kbd, samp, pre, .font-mono {
 body {
   margin: 0;
   min-width: 320px;
-  background-color: #080B14;
-  color: #F1F5FF;
+  background-color: #F8FAFC;
+  color: #0F172A;
   overflow-x: hidden;
 }
 
-/* Subtle cybernetic grid background */
-.bg-grid-pattern {
-  background-size: 36px 36px;
-  background-image: 
-    linear-gradient(to right, rgba(34, 43, 64, 0.22) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(34, 43, 64, 0.22) 1px, transparent 1px);
+/* ── Cybernetic Precision Grid Background (Light) ───────────────── */
+.bg-cyber-grid {
+  background-size: 32px 32px;
+  background-image:
+    linear-gradient(to right, rgba(6, 182, 212, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.07) 1px, transparent 1px);
 }
 
-/* Custom glow effects */
-.glow-indigo {
-  box-shadow: 0 0 25px -4px rgba(118, 103, 255, 0.25);
+.bg-cyber-dots {
+  background-size: 24px 24px;
+  background-image: radial-gradient(circle, rgba(99, 102, 241, 0.12) 1px, transparent 1px);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 25px -4px rgba(67, 217, 245, 0.22);
+/* ── Light Cyberpunk Card & Surface Styles ───────────────────────── */
+.cyber-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.glow-emerald {
-  box-shadow: 0 0 20px -4px rgba(16, 185, 129, 0.25);
+.cyber-card:hover {
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 8px 30px -4px rgba(6, 182, 212, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
 }
 
-.glow-rose {
-  box-shadow: 0 0 20px -4px rgba(244, 63, 94, 0.25);
+/* ── Restrained Glow Utilities (Light Theme) ─────────────────────── */
+.glow-cyan-light {
+  box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.28);
 }
 
-.glow-amber {
-  box-shadow: 0 0 20px -4px rgba(245, 158, 11, 0.25);
+.glow-magenta-light {
+  box-shadow: 0 0 16px -2px rgba(236, 72, 153, 0.24);
 }
 
-/* Sleek dark scrollbar */
+.glow-amber-light {
+  box-shadow: 0 0 16px -2px rgba(245, 158, 11, 0.24);
+}
+
+.glow-ultraviolet-light {
+  box-shadow: 0 0 16px -2px rgba(99, 102, 241, 0.24);
+}
+
+/* ── Cybernetic Button Microinteractions ─────────────────────────── */
+.cyber-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cyber-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transition: left 0.5s ease-in-out;
+}
+
+.cyber-btn:hover::before {
+  left: 100%;
+}
+
+/* Subtle digital glitch / chromatic shift on button hover */
+@keyframes cyberGlitchHover {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-1px, 0.5px);
+  }
+  40% {
+    transform: translate(1px, -0.5px);
+  }
+  60% {
+    transform: translate(-0.5px, -0.5px);
+  }
+  80% {
+    transform: translate(0.5px, 0.5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.cyber-glitch-hover:hover {
+  animation: cyberGlitchHover 0.22s ease-in-out;
+}
+
+/* ── Technical Scanline Sweep ────────────────────────────────────── */
+@keyframes scanSweep {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scan-sweep {
+  animation: scanSweep 3s linear infinite;
+}
+
+/* ── Custom Light Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: #080B14;
+  background: #F1F5F9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #222B40;
+  background: #CBD5E1;
   border-radius: 9999px;
+  border: 2px solid #F1F5F9;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3A4766;
+  background: #94A3B8;
 }
 
-/* Restrained entrance animation */
-@keyframes fadeInSlide {
+/* ── Technical Radar Scanner Rotation ────────────────────────────── */
+@keyframes radarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-spin {
+  animation: radarSpin 4s linear infinite;
+}
+
+/* ── Smooth Fade & Translate Entrances ───────────────────────────── */
+@keyframes techReveal {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -97,21 +196,21 @@ body {
   }
 }
 
-.animate-fade-in {
-  animation: fadeInSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.animate-tech-reveal {
+  animation: techReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
+/* ── Reduced Motion Support ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  50% {
-    opacity: 0.55;
-    transform: scale(1.18);
+  .cyber-glitch-hover:hover {
+    animation: none !important;
   }
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 2.5s infinite ease-in-out;
 }

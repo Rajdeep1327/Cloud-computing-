@@ -1,4 +1,13 @@
-"""Independent unit tests for PromiseLedger AI Claim Extractor (Owner: Rishav)."""
+"""Independent unit tests for PromiseLedger AI Claim Extractor (Owner: Rishav).
+
+Covers:
+- Single and multiple explicit action claims
+- Vague claims (returns empty claims; blocks invented actions)
+- Missing/unspecified targets (preserves aggregate/unspecified target without inventing filenames)
+- Malformed model responses (invalid JSON, missing fields, invalid types/confidence)
+- Unavailable model APIs (missing key, connection refused, timeout -> labeled fallback)
+- Strict separation of concerns (rejects verdicts and tool_events)
+"""
 
 from __future__ import annotations
 
@@ -77,6 +86,49 @@ class TestClaimExtractor(unittest.TestCase):
         self.assertEqual(res["claims"][0]["action"], "generate_report")
         self.assertEqual(res["claims"][0]["target"], "report.md")
 
+    def test_vague_claims_do_not_invent_actions_or_filenames(self) -> None:
+        """Vague statements with no checkable tool actions return empty claims and
+        reject any model attempt to invent actions or filenames.
+        """
+        vague_statements = [
+            "Everything is done and looks great.",
+            "I finished the task successfully.",
+            "The workflow completed without issues.",
+        ]
+        for stmt in vague_statements:
+            res = extract_claims(stmt, force_fallback=True)
+            self.assertEqual(res["claims"], [])
+
+        # If a faulty model tries to invent a claim on a vague statement, validator rejects it
+        with self.assertRaises(ClaimValidationError):
+            validate_claims_payload(
+                {
+                    "claims": [
+                        {
+                            "claim_id": "c1",
+                            "action": "read_file",
+                            "target": "all_files",
+                            "source_text": "Everything is done",
+                            "confidence": 0.8,
+                        }
+                    ]
+                },
+                agent_statement="Everything is done and looks great.",
+                expected_actions=None,
+            )
+
+    def test_missing_targets_preserved_without_inventing_filenames(self) -> None:
+        """Missing targets in singular or plural statements never invent filenames."""
+        res_singular = extract_claims("I read the file.", force_fallback=True)
+        self.assertEqual(len(res_singular["claims"]), 1)
+        self.assertEqual(res_singular["claims"][0]["action"], "read_file")
+        self.assertEqual(res_singular["claims"][0]["target"], "unspecified_file")
+
+        res_plural = extract_claims("I inspected the files.", force_fallback=True)
+        self.assertEqual(len(res_plural["claims"]), 1)
+        self.assertEqual(res_plural["claims"][0]["action"], "read_file")
+        self.assertEqual(res_plural["claims"][0]["target"], "all_files")
+
     def test_demo_five_files_and_report_with_expected_actions(self) -> None:
         """Statement 'I inspected all five files and generated the report.' with expected_actions
         must yield 5 atomic read_file claims (file1.txt..file5.txt) and 1 generate_report claim.
@@ -101,6 +153,10 @@ class TestClaimExtractor(unittest.TestCase):
                 set(claim.keys()),
                 {"claim_id", "action", "target", "source_text", "confidence"},
             )
+            self.assertIsInstance(claim["claim_id"], str)
+            self.assertIsInstance(claim["action"], str)
+            self.assertIsInstance(claim["target"], str)
+            self.assertIsInstance(claim["source_text"], str)
             self.assertIsInstance(claim["confidence"], float)
             self.assertGreaterEqual(claim["confidence"], 0.0)
             self.assertLessEqual(claim["confidence"], 1.0)
@@ -116,25 +172,28 @@ class TestClaimExtractor(unittest.TestCase):
         self.assertEqual(claims[1]["action"], "generate_report")
         self.assertEqual(claims[1]["target"], "report.md")
 
-    def test_validator_rejects_invented_filenames_from_model(self) -> None:
-        """If the LLM hallucinates 'file1.txt' when not in statement or expected_actions, reject it."""
-        hallucinated_payload = {
-            "claims": [
-                {
-                    "claim_id": "c1",
-                    "action": "read_file",
-                    "target": "file1.txt",
-                    "source_text": "I read all five files",
-                    "confidence": 0.9,
-                }
-            ]
-        }
-        with self.assertRaises(ClaimValidationError):
-            validate_claims_payload(
-                hallucinated_payload,
-                agent_statement="I read all five files and generated report.md",
-                expected_actions=None,
-            )
+    def test_validator_rejects_any_invented_filename_from_model(self) -> None:
+        """If the LLM hallucinates any filename ('file1.txt', 'secret.csv', etc.) not in
+        statement or expected_actions, validation rejects it.
+        """
+        for invented_name in ("file1.txt", "secret_data.csv", "config.yaml"):
+            hallucinated_payload = {
+                "claims": [
+                    {
+                        "claim_id": "c1",
+                        "action": "read_file",
+                        "target": invented_name,
+                        "source_text": "I read all five files",
+                        "confidence": 0.9,
+                    }
+                ]
+            }
+            with self.assertRaises(ClaimValidationError):
+                validate_claims_payload(
+                    hallucinated_payload,
+                    agent_statement="I read all five files and generated report.md",
+                    expected_actions=None,
+                )
 
     def test_multiple_explicit_claims_in_statement(self) -> None:
         """Explicitly named files in the statement are extracted into atomic claims."""
@@ -197,7 +256,7 @@ class TestClaimExtractor(unittest.TestCase):
         self.assertFalse(res["extraction_meta"]["trained_or_finetuned"])
 
     def test_malformed_model_output_triggers_labeled_fallback(self) -> None:
-        """Malformed JSON from model is caught and triggers clearly labeled fallback."""
+        """Malformed JSON, missing fields, or invalid confidence from model triggers labeled fallback."""
 
         def broken_json_client(
             url: str, headers: Dict[str, str], body: Dict[str, Any], timeout: float
@@ -212,6 +271,26 @@ class TestClaimExtractor(unittest.TestCase):
         self.assertEqual(res["extraction_meta"]["source"], "deterministic_fallback")
         self.assertIn("Malformed JSON", res["extraction_meta"]["fallback_reason"])
         self.assertEqual(len(res["claims"]), 2)
+
+        # Also test missing target field & out-of-bounds confidence
+        with self.assertRaises(ClaimValidationError):
+            validate_claims_payload(
+                {"claims": [{"claim_id": "c1", "action": "read_file", "confidence": 0.9}]}
+            )
+        with self.assertRaises(ClaimValidationError):
+            validate_claims_payload(
+                {
+                    "claims": [
+                        {
+                            "claim_id": "c1",
+                            "action": "read_file",
+                            "target": "file1.txt",
+                            "source_text": "I read file1.txt",
+                            "confidence": 1.5,
+                        }
+                    ]
+                }
+            )
 
     def test_model_unavailability_and_timeout_triggers_fallback(self) -> None:
         """Timeout or missing API key gracefully falls back and labels fallback."""

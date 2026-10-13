@@ -1,10 +1,10 @@
 """PromiseLedger — AI Claim Extractor (Owner: Rishav).
 
 Converts natural-language agent statements into structured, atomic, checkable
-action claims using an open-weight language model (Llama-3.3-70B-Instruct /
-Qwen2.5-72B-Instruct) via an OpenAI-compatible inference endpoint or local
-Ollama runtime, with strict schema validation and a clearly labeled
-deterministic fallback.
+action claims using an open-weight language model (meta-llama/Llama-3.3-70B-Instruct,
+Qwen/Qwen2.5-72B-Instruct, or openai/gpt-oss-20b via Pollinations/OVH) over an
+OpenAI-compatible inference endpoint or local Ollama runtime, with strict schema
+validation and a clearly distinguished deterministic fallback.
 
 IMPORTANT:
 - Uses prompt-based structured extraction only (no model training or fine-tuning).
@@ -48,6 +48,13 @@ ACTION_ALIASES = {
     "execute_command": "execute_command",
 }
 
+KNOWN_ACTION_VERBS_RE = re.compile(
+    r"\b(?:read|inspected|checked|opened|examined|reviewed|processed|loaded|parsed|"
+    r"generated|created|wrote|built|compiled|produced|updated|saved|modified|"
+    r"deleted|removed|ran|executed|passed)\b",
+    flags=re.IGNORECASE,
+)
+
 WORD_TO_NUMBER = {
     "one": 1,
     "two": 2,
@@ -63,8 +70,10 @@ WORD_TO_NUMBER = {
 
 DEFAULT_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_POLLINATIONS_MODEL = "openai-fast"  # GPT-OSS 20B (Apache-2.0 open-weight on OVH)
 DEFAULT_HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 DEFAULT_GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+DEFAULT_POLLINATIONS_API_URL = "https://text.pollinations.ai/openai"
 DEFAULT_OLLAMA_API_URL = "http://localhost:11434/v1/chat/completions"
 
 SYSTEM_PROMPT = """You are the AI Claim Extractor for PromiseLedger, an AI agent accountability system.
@@ -92,9 +101,10 @@ STRICT RULES:
    - "delete_file" (for deleting or removing a file)
    - "run_tests" (for running or executing tests)
    - "execute_command" (for running a shell/CLI command)
-5. GROUP CLAIMS RULE:
+5. NO INVENTED TARGETS OR ACTIONS:
+   - If the statement is vague (e.g., "I finished the task and everything looks good") and states no concrete checkable tool action, return {"claims": []}.
    - If the agent claims a group action (e.g., "I read all five files" or "I inspected all five files") AND `expected_actions` provides the specific file targets, expand the group claim into separate atomic claims (one per target file, in order) using the group phrase as `source_text`.
-   - If the agent claims a group action (e.g., "I read all five files") and individual filenames are NOT present in either the statement or `expected_actions`, DO NOT invent filenames like "file1.txt". Instead, emit a single explicit aggregate claim with target set to "all_5_files" (or the corresponding count/group descriptor).
+   - If the agent claims a group or unspecified file action (e.g., "I read all five files" or "I read a file") and individual filenames are NOT present in either the statement or `expected_actions`, DO NOT invent filenames like "file1.txt". Emit an explicit aggregate/unspecified target such as "all_5_files", "all_files", or "unspecified_file".
 6. If the statement is empty or contains no checkable action claims, return {"claims": []}.
 """
 
@@ -148,13 +158,15 @@ def parse_json_response(raw_text: str) -> Dict[str, Any]:
     return parsed
 
 
-def _check_no_invented_filenames(
+def _check_no_invented_targets_or_actions(
+    action: str,
     target: str,
+    source_text: str,
     agent_statement: str,
     expected_actions: Optional[List[Dict[str, Any]]],
 ) -> None:
-    """Ensure individual numbered filenames (e.g. file1.txt) are not invented
-    when neither the statement nor expected_actions contains them.
+    """Ensure the model never invents filenames or ungrounded actions when the input
+    does not establish them.
     """
     allowed_targets = set()
     if expected_actions:
@@ -165,7 +177,24 @@ def _check_no_invented_filenames(
     target_lower = target.strip().lower()
     statement_lower = (agent_statement or "").lower()
 
-    if re.match(r"^file\d+\.[a-z0-9]+$", target_lower):
+    # 1. If the statement contains no checkable action verb at all, reject invented claims
+    if not KNOWN_ACTION_VERBS_RE.search(statement_lower):
+        raise ClaimValidationError(
+            f"Model invented action '{action}' on a vague statement with no checkable action verbs."
+        )
+
+    # 2. Ensure source_text shares at least one meaningful token with agent_statement
+    source_tokens = [
+        tok for tok in re.findall(r"[a-z0-9_.\-]+", source_text.lower()) if len(tok) >= 3
+    ]
+    if source_tokens and not any(tok in statement_lower for tok in source_tokens):
+        raise ClaimValidationError(
+            f"Claim source_text '{source_text}' is not grounded in agent_statement."
+        )
+
+    # 3. Any concrete filename with an extension (e.g., file1.txt, data.csv, report.md)
+    #    must appear in either agent_statement or expected_actions.
+    if re.match(r"^[a-z0-9_\-/]+\.[a-z0-9]{1,8}$", target_lower):
         if target_lower not in statement_lower and target_lower not in allowed_targets:
             raise ClaimValidationError(
                 f"Model invented filename '{target}' not present in statement or expected_actions."
@@ -238,8 +267,11 @@ def validate_claims_payload(
                 f"Claim at index {idx - 1} 'confidence' ({conf_float}) is outside [0.0, 1.0]."
             )
 
+        norm_action = normalize_action(action)
         if agent_statement is not None:
-            _check_no_invented_filenames(target, agent_statement, expected_actions)
+            _check_no_invented_targets_or_actions(
+                norm_action, target, source_text, agent_statement, expected_actions
+            )
 
         clean_id = claim_id.strip()
         if clean_id in seen_ids:
@@ -249,7 +281,7 @@ def validate_claims_payload(
         validated_claims.append(
             {
                 "claim_id": clean_id,
-                "action": normalize_action(action),
+                "action": norm_action,
                 "target": target.strip(),
                 "source_text": source_text.strip(),
                 "confidence": round(conf_float, 4),
@@ -414,7 +446,7 @@ def deterministic_extract_claims(
             add_claim("generate_report", report_target, clause_clean, 0.93)
             continue
 
-        # 3. Explicit file read claims, e.g., "I read file1.txt and file2.txt"
+        # 3. Explicit or singular missing-target file read claims
         if re.search(
             r"\b(?:read|inspected|checked|opened|examined|loaded|parsed)\b",
             clause_lower,
@@ -425,6 +457,9 @@ def deterministic_extract_claims(
             if filenames:
                 for fname in filenames:
                     add_claim("read_file", fname, clause_clean, 0.94)
+                continue
+            if re.search(r"\b(?:the\s+file|a\s+file)\b", clause_lower):
+                add_claim("read_file", "unspecified_file", clause_clean, 0.75)
                 continue
 
         # 4. Explicit file write/update claims
@@ -475,7 +510,7 @@ class ClaimExtractor:
         api_key: Optional[str] = None,
         api_url: Optional[str] = None,
         model_name: Optional[str] = None,
-        timeout_sec: float = 8.0,
+        timeout_sec: float = 12.0,
         http_client: Optional[
             Callable[[str, Dict[str, str], Dict[str, Any], float], str]
         ] = None,
@@ -489,15 +524,22 @@ class ClaimExtractor:
         self.use_local_ollama = (
             os.environ.get("USE_LOCAL_OLLAMA", "").lower() in ("1", "true", "yes")
         )
+        self.use_public_open_weight = (
+            os.environ.get("USE_PUBLIC_OPEN_WEIGHT", "").lower() in ("1", "true", "yes")
+        )
 
         if api_url:
             self.api_url = api_url
+        elif os.environ.get("OPEN_WEIGHT_API_URL"):
+            self.api_url = os.environ["OPEN_WEIGHT_API_URL"]
         elif self.use_local_ollama:
-            self.api_url = os.environ.get("OPEN_WEIGHT_API_URL", DEFAULT_OLLAMA_API_URL)
-        elif os.environ.get("GROQ_API_KEY") and not os.environ.get("OPEN_WEIGHT_API_URL"):
+            self.api_url = DEFAULT_OLLAMA_API_URL
+        elif os.environ.get("GROQ_API_KEY"):
             self.api_url = DEFAULT_GROQ_API_URL
+        elif self.use_public_open_weight:
+            self.api_url = DEFAULT_POLLINATIONS_API_URL
         else:
-            self.api_url = os.environ.get("OPEN_WEIGHT_API_URL", DEFAULT_HF_API_URL)
+            self.api_url = DEFAULT_HF_API_URL
 
         if model_name:
             self.model_name = model_name
@@ -505,6 +547,8 @@ class ClaimExtractor:
             self.model_name = os.environ["OPEN_WEIGHT_MODEL"]
         elif os.environ.get("GROQ_API_KEY"):
             self.model_name = DEFAULT_GROQ_MODEL
+        elif self.use_public_open_weight:
+            self.model_name = DEFAULT_POLLINATIONS_MODEL
         else:
             self.model_name = DEFAULT_MODEL
 
@@ -534,10 +578,11 @@ class ClaimExtractor:
         if (
             not self.api_key
             and not self.use_local_ollama
+            and not self.use_public_open_weight
             and self._http_client == self._default_http_post
         ):
             raise RuntimeError(
-                "Missing OPEN_WEIGHT_API_KEY (or GROQ_API_KEY / HF_TOKEN) and USE_LOCAL_OLLAMA is not enabled."
+                "Missing OPEN_WEIGHT_API_KEY (or GROQ_API_KEY / HF_TOKEN) and local/public runtime is not enabled."
             )
 
         headers: Dict[str, str] = {
