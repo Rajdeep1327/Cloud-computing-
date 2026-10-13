@@ -44,11 +44,12 @@ npm run preview   # local preview of prod build
 src/
 ├── components/
 │   ├── AgentStatementPanel.jsx  # Displays raw agent statement
+│   ├── CinematicHero.jsx        # Two-frame light cyberpunk scroll crossfade hero
 │   ├── ClaimsTable.jsx          # Claims × verdicts table
 │   ├── DiscrepancyPanel.jsx     # Discrepancy highlights + risk level
 │   ├── ErrorBanner.jsx          # Error state with retry
 │   ├── EvidenceModal.jsx        # Per-claim evidence inspector (modal)
-│   ├── LoadingSpinner.jsx       # Loading state
+│   ├── LoadingSpinner.jsx       # Loading state with radar animation
 │   ├── SummaryCards.jsx         # VERIFIED / CONTRADICTED / UNVERIFIED tiles
 │   ├── ToolTimeline.jsx         # Chronological tool event timeline
 │   └── VerdictBadge.jsx         # Pill badge (color + icon + text)

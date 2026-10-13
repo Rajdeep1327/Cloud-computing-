@@ -19,14 +19,18 @@ export default function CinematicHero({ onRunDemo, isRunning }) {
   const containerRef = useRef(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [manualOverride, setManualOverride] = useState(null); // null | 'start' | 'end'
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const [imagesLoaded, setImagesLoaded] = useState({ start: false, end: false });
+  const [reducedMotion, setReducedMotion] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  });
   const [imagesError, setImagesError] = useState({ start: false, end: false });
 
-  // Check prefers-reduced-motion
+  // Listen for prefers-reduced-motion changes
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mediaQuery.matches);
 
     const listener = (e) => setReducedMotion(e.matches);
     mediaQuery.addEventListener('change', listener);
@@ -84,7 +88,6 @@ export default function CinematicHero({ onRunDemo, isRunning }) {
             src="/images/cyberpunk-start.png"
             alt="PromiseLedger initial dormant state illustration"
             loading="eager"
-            onLoad={() => setImagesLoaded((prev) => ({ ...prev, start: true }))}
             onError={() => setImagesError((prev) => ({ ...prev, start: true }))}
             className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-opacity duration-300"
             style={{
@@ -101,7 +104,6 @@ export default function CinematicHero({ onRunDemo, isRunning }) {
             src="/images/cyberpunk-end.png"
             alt="PromiseLedger activated verification state illustration"
             loading="eager"
-            onLoad={() => setImagesLoaded((prev) => ({ ...prev, end: true }))}
             onError={() => setImagesError((prev) => ({ ...prev, end: true }))}
             className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-opacity duration-300"
             style={{

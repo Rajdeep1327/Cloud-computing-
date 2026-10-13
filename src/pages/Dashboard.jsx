@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { runDemo, MODE } from '../services/api.js';
 
+import CinematicHero       from '../components/CinematicHero.jsx';
 import AgentStatementPanel from '../components/AgentStatementPanel.jsx';
 import SummaryCards       from '../components/SummaryCards.jsx';
 import ClaimsTable        from '../components/ClaimsTable.jsx';
@@ -9,24 +10,24 @@ import DiscrepancyPanel   from '../components/DiscrepancyPanel.jsx';
 import LoadingSpinner     from '../components/LoadingSpinner.jsx';
 import ErrorBanner        from '../components/ErrorBanner.jsx';
 
-/** Sleek dark section wrapper with cyberpunk/Linear style header */
+/** Light Cyberpunk Section wrapper */
 function Section({ title, badge, children }) {
   return (
-    <section className="rounded-2xl bg-[#101625] border border-[#222B40] overflow-hidden shadow-xl transition-all duration-200 hover:border-[#2D3A56]">
-      <div className="px-6 py-4 border-b border-[#1D263B] bg-[#0D121F] flex items-center justify-between gap-3">
+    <section className="cyber-card rounded-3xl overflow-hidden shadow-sm border border-slate-200/90 transition-all duration-200">
+      <div className="px-6 py-4.5 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-[#7667FF]" aria-hidden="true" />
-          <h2 className="text-xs font-mono font-bold text-[#F1F5FF] uppercase tracking-wider">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-2xs" aria-hidden="true" />
+          <h2 className="text-xs font-mono font-bold text-slate-900 uppercase tracking-wider">
             {title}
           </h2>
         </div>
         {badge && (
-          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-[#162036] text-[#43D9F5] border border-[#233352]">
+          <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-white text-cyan-800 border border-cyan-200 shadow-2xs font-semibold">
             {badge}
           </span>
         )}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-6 sm:p-7">{children}</div>
     </section>
   );
 }
@@ -43,6 +44,13 @@ export default function Dashboard() {
     try {
       const data = await runDemo();
       setState({ status: 'done', data, error: null });
+      // Smoothly scroll down to results after running
+      setTimeout(() => {
+        const resultsEl = document.getElementById('audit-results');
+        if (resultsEl) {
+          resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } catch (err) {
       setState({ status: 'error', data: null, error: err });
     }
@@ -50,19 +58,20 @@ export default function Dashboard() {
 
   const handleReset = useCallback(() => {
     setState({ status: 'idle', data: null, error: null });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const { status, data, error } = state;
 
   return (
-    <div className="min-h-screen bg-[#080B14] text-[#F1F5FF] selection:bg-[#7667FF]/30 selection:text-white bg-grid-pattern relative">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] bg-cyber-grid relative">
       {/* ── Top Navigation Bar ────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[#080B14]/85 backdrop-blur-md border-b border-[#222B40]">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4 flex-wrap">
           {/* Brand Logo & Wordmark */}
           <div className="flex items-center gap-3.5">
             <div
-              className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#7667FF] to-[#43D9F5] flex items-center justify-center text-white font-black text-lg shadow-[0_0_20px_rgba(118,103,255,0.4)] select-none shrink-0"
+              className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-pink-500 flex items-center justify-center text-white font-black text-lg shadow-md shadow-cyan-500/20 select-none shrink-0"
               aria-hidden="true"
             >
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -72,14 +81,14 @@ export default function Dashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-extrabold tracking-tight text-[#F1F5FF]">
-                  Promise<span className="text-[#43D9F5]">Ledger</span>
+                <span className="text-xl font-black tracking-tight text-slate-900">
+                  Promise<span className="text-cyan-600">Ledger</span>
                 </span>
-                <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#162036] text-[#7667FF] border border-[#2B3A5A]">
-                  v1.0 BETA
+                <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
+                  LIGHT CYBERPUNK
                 </span>
               </div>
-              <p className="text-xs text-[#98A5BD] leading-none mt-0.5">
+              <p className="text-xs text-slate-500 leading-none mt-0.5">
                 AI Agent Accountability · Claim vs. Telemetry
               </p>
             </div>
@@ -89,26 +98,27 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             {/* Mode badge */}
             <span
-              className={`text-xs font-mono font-semibold px-3 py-1 rounded-full border flex items-center gap-1.5 uppercase tracking-wide transition-all ${
+              className={`text-xs font-mono font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 uppercase tracking-wide transition-all ${
                 MODE === 'LIVE'
-                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.2)]'
-                  : 'bg-amber-950/60 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                  ? 'bg-cyan-50 text-cyan-900 border-cyan-300 shadow-2xs'
+                  : 'bg-amber-50 text-amber-900 border-amber-300 shadow-2xs'
               }`}
               aria-label={`Running in ${MODE} mode`}
             >
               <span
                 className={`w-2 h-2 rounded-full ${
-                  MODE === 'LIVE' ? 'bg-emerald-400' : 'bg-amber-400'
+                  MODE === 'LIVE' ? 'bg-cyan-500' : 'bg-amber-500'
                 } animate-pulse`}
               />
               <span>{MODE === 'LIVE' ? 'Live API' : 'Mock Demo'}</span>
             </span>
 
-            {/* Run Demo / Re-run button */}
+            {/* Run Demo / Re-run button with Glitch Hover */}
             <button
+              type="button"
               onClick={handleRunDemo}
               disabled={status === 'loading'}
-              className="relative inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-[#7667FF] to-[#5848EE] hover:from-[#8577FF] hover:to-[#6757FF] border border-[#8577FF]/40 shadow-[0_0_20px_rgba(118,103,255,0.35)] hover:shadow-[0_0_25px_rgba(118,103,255,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#7667FF] focus:ring-offset-2 focus:ring-offset-[#080B14]"
+              className="cyber-btn cyber-glitch-hover relative inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-cyan-600 via-indigo-600 to-pink-600 hover:opacity-95 shadow-md shadow-cyan-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2"
               aria-busy={status === 'loading'}
             >
               {status === 'loading' ? (
@@ -131,9 +141,10 @@ export default function Dashboard() {
 
             {status === 'done' && (
               <button
+                type="button"
                 onClick={handleReset}
-                title="Reset dashboard"
-                className="hidden sm:inline-flex p-2 rounded-lg text-[#98A5BD] hover:text-[#F1F5FF] hover:bg-[#151D30] border border-[#222B40] transition-colors"
+                title="Reset dashboard to hero"
+                className="hidden sm:inline-flex p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
                 aria-label="Reset audit view"
               >
                 <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
@@ -147,7 +158,13 @@ export default function Dashboard() {
       </header>
 
       {/* ── Main Content Area ─────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-7">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+        {/* Phase 3: Two-Frame Cinematic Hero */}
+        <CinematicHero
+          onRunDemo={handleRunDemo}
+          isRunning={status === 'loading'}
+        />
 
         {/* Loading State */}
         {status === 'loading' && (
@@ -159,88 +176,9 @@ export default function Dashboard() {
           <ErrorBanner error={error} onRetry={handleRunDemo} />
         )}
 
-        {/* Empty / Idle State: High-Impact Hero Presentation */}
-        {status === 'idle' && (
-          <div className="py-12 sm:py-20 flex flex-col items-center justify-center text-center animate-fade-in">
-            {/* Subtle Hero Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#101625] border border-[#222B40] text-xs font-mono text-[#43D9F5] mb-6 shadow-md">
-              <span className="w-2 h-2 rounded-full bg-[#7667FF] animate-pulse" />
-              <span>Autonomous AI Telemetry Cross-Examiner</span>
-            </div>
-
-            {/* Core Value Proposition Heading */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#F1F5FF] tracking-tight max-w-4xl leading-[1.15]">
-              Catch the gap between what an AI says and what it{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#43D9F5] via-[#7667FF] to-[#A093FF]">
-                actually does.
-              </span>
-            </h1>
-
-            <p className="mt-5 text-base sm:text-lg text-[#98A5BD] max-w-2xl leading-relaxed">
-              PromiseLedger maps verbal assertions into verifiable claims, cross-references raw tool execution events, and reveals silent omissions, skipped actions, and fabricated successes.
-            </p>
-
-            {/* Big Action Call */}
-            <div className="mt-8 flex flex-col sm:flex-row items-center gap-4">
-              <button
-                onClick={handleRunDemo}
-                className="inline-flex items-center gap-3 px-8 py-3.5 rounded-xl text-base font-bold text-white bg-gradient-to-r from-[#7667FF] via-[#6555FF] to-[#43D9F5] hover:opacity-95 shadow-[0_0_30px_rgba(118,103,255,0.45)] hover:shadow-[0_0_40px_rgba(67,217,245,0.5)] active:scale-[0.98] transition-all duration-200"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
-                </svg>
-                <span>Run Interactive Sample Audit</span>
-              </button>
-            </div>
-
-            <p className="mt-3 text-xs text-[#5E6C84] font-mono">
-              Zero configuration · No API key required for demo mode
-            </p>
-
-            {/* 3 Step Accountability Explanation Grid */}
-            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl w-full text-left">
-              <div className="p-5 rounded-xl bg-[#101625] border border-[#222B40] hover:border-[#2F3C59] transition-all shadow-lg">
-                <div className="w-9 h-9 rounded-lg bg-[#162036] text-[#43D9F5] border border-[#293A5C] flex items-center justify-center font-mono font-bold text-sm mb-3.5">
-                  01
-                </div>
-                <h3 className="text-sm font-bold text-[#F1F5FF] mb-1.5">
-                  1. Claim Extraction
-                </h3>
-                <p className="text-xs text-[#98A5BD] leading-relaxed">
-                  Extracts specific verbal commitments, target file paths, and claimed execution counts from agent output.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-xl bg-[#101625] border border-[#222B40] hover:border-[#2F3C59] transition-all shadow-lg">
-                <div className="w-9 h-9 rounded-lg bg-[#162036] text-[#7667FF] border border-[#293A5C] flex items-center justify-center font-mono font-bold text-sm mb-3.5">
-                  02
-                </div>
-                <h3 className="text-sm font-bold text-[#F1F5FF] mb-1.5">
-                  2. Telemetry Ingestion
-                </h3>
-                <p className="text-xs text-[#98A5BD] leading-relaxed">
-                  Ingests timestamped tool calls, execution statuses, latencies, and kernel-level skip/failure logs.
-                </p>
-              </div>
-
-              <div className="p-5 rounded-xl bg-[#101625] border border-[#222B40] hover:border-[#2F3C59] transition-all shadow-lg">
-                <div className="w-9 h-9 rounded-lg bg-[#162036] text-emerald-400 border border-[#293A5C] flex items-center justify-center font-mono font-bold text-sm mb-3.5">
-                  03
-                </div>
-                <h3 className="text-sm font-bold text-[#F1F5FF] mb-1.5">
-                  3. Deterministic Ledger
-                </h3>
-                <p className="text-xs text-[#98A5BD] leading-relaxed">
-                  Flags contradictions, verifies truthfulness, and computes risk scores based on complete audit logs.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Active Analysis Results Screen */}
         {status === 'done' && data && (
-          <div className="space-y-7 animate-fade-in">
+          <div id="audit-results" className="space-y-8 animate-tech-reveal scroll-mt-20">
             {/* 1. Agent Statement Panel */}
             <Section title="Audited Agent Statement" badge={`ID: ${data.statement?.id}`}>
               <AgentStatementPanel statement={data.statement} />
@@ -274,15 +212,15 @@ export default function Dashboard() {
       </main>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <footer className="border-t border-[#1D263B] bg-[#090D17] mt-16 py-6 text-center text-xs text-[#5E6C84]">
+      <footer className="border-t border-slate-200/90 bg-white/90 mt-20 py-8 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-[#98A5BD]">PromiseLedger</span>
+            <span className="font-bold text-slate-800">PromiseLedger</span>
             <span>·</span>
-            <span>AI Agent Observability & Accountability Platform</span>
+            <span>Light Cyberpunk AI Agent Observability Platform</span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[11px]">
-            <span className={MODE === 'LIVE' ? 'text-emerald-400' : 'text-amber-400'}>
+            <span className={MODE === 'LIVE' ? 'text-cyan-700 font-bold' : 'text-amber-700 font-bold'}>
               ● {MODE} MODE ACTIVE
             </span>
             <span>·</span>
