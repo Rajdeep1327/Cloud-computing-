@@ -190,16 +190,20 @@ Never commit `.env.local` or real API keys.
 
 ## Sample Scenario
 
-Agent statement: "I inspected all five files and generated the report."
+**Agent statement:**
+> *"I inspected all five files, generated the report, and dispatched an alert to the security webhook."*
 
-Recorded events: successful reads of config.yaml, main.py, utils.py;
-skipped reads of tests/test_main.py and README.md (quota limit);
-successful generate_report.
+**Recorded telemetry events:**
+- Successful reads of `config.yaml`, `main.py`, `utils.py`
+- Skipped reads of `tests/test_main.py` and `README.md` (HTTP 429 quota limit)
+- Successful execution of `generate_report` (`analysis_report.pdf`, 12 pages)
+- Webhook notification event stream not attached in this session
 
-| Claim | Verdict | Reason |
-|-------|---------|--------|
-| Inspected all five files | CONTRADICTED | Only 3 reads succeeded; 2 skipped (quota). Log is COMPLETE. |
-| Generated the report | VERIFIED | generate_report event succeeded. |
+| Claim Assertion | Verdict | Audit Finding & Rationale |
+|-----------------|---------|---------------------------|
+| **Inspected all five files** | `CONTRADICTED` | Only 3 of 5 reads succeeded; 2 skipped due to quota limits. Execution log is `COMPLETE`, disproving full inspection. |
+| **Generated the report** | `VERIFIED` | `generate_report` event succeeded; `analysis_report.pdf` created with checksum verification. |
+| **Dispatched alert to security webhook** | `UNVERIFIED` | No webhook dispatch events found in telemetry stream. Cannot confirm execution without external webhook auditor. |
 
 ---
 

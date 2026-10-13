@@ -6,15 +6,15 @@
  *   src/services/claimExtractor.js
  *   src/services/claimVerifier.js
  *
- * To switch to live mode, replace the mock exports with real API calls
- * in src/services/api.js — this file stays untouched.
+ * To switch to live mode, set VITE_EXTRACTOR_ENDPOINT and VITE_VERIFIER_ENDPOINT
+ * in .env.local — this file stays untouched.
  * ─────────────────────────────────────────────────────────────────
  */
 
 /** @type {import('../services/claimExtractor').AgentStatement} */
 export const DEMO_STATEMENT = {
   id: 'stmt-001',
-  text: 'I inspected all five files and generated the report.',
+  text: 'I inspected all five files, generated the report, and dispatched an alert to the security webhook.',
   timestamp: '2024-01-15T14:30:00Z',
   agentId: 'agent-alpha-v2',
 };
@@ -31,7 +31,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'success',
     timestamp: '2024-01-15T14:28:01Z',
     durationMs: 45,
-    metadata: { bytes: 1024 },
+    metadata: { bytes: 1024, mode: 'read-only' },
   },
   {
     id: 'evt-002',
@@ -40,7 +40,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'success',
     timestamp: '2024-01-15T14:28:10Z',
     durationMs: 62,
-    metadata: { bytes: 4200 },
+    metadata: { bytes: 4200, mode: 'read-only' },
   },
   {
     id: 'evt-003',
@@ -49,7 +49,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'success',
     timestamp: '2024-01-15T14:28:22Z',
     durationMs: 38,
-    metadata: { bytes: 2100 },
+    metadata: { bytes: 2100, mode: 'read-only' },
   },
   {
     id: 'evt-004',
@@ -58,7 +58,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'skipped',
     timestamp: '2024-01-15T14:28:35Z',
     durationMs: 0,
-    metadata: { reason: 'quota_limit_reached' },
+    metadata: { reason: 'quota_limit_reached', http_status: 429 },
   },
   {
     id: 'evt-005',
@@ -67,7 +67,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'skipped',
     timestamp: '2024-01-15T14:28:36Z',
     durationMs: 0,
-    metadata: { reason: 'quota_limit_reached' },
+    metadata: { reason: 'quota_limit_reached', http_status: 429 },
   },
   {
     id: 'evt-006',
@@ -76,7 +76,7 @@ export const DEMO_TOOL_EVENTS = [
     status: 'success',
     timestamp: '2024-01-15T14:29:55Z',
     durationMs: 1230,
-    metadata: { pages: 12, format: 'pdf' },
+    metadata: { pages: 12, format: 'pdf', checksum: 'sha256:7f8a9e21' },
   },
 ];
 
@@ -91,7 +91,7 @@ export const DEMO_CLAIMS = [
     description: 'Inspected all five files',
     action: 'read_file',
     expectedCount: 5,
-    confidence: 0.95,
+    confidence: 0.98,
   },
   {
     id: 'clm-002',
@@ -100,6 +100,14 @@ export const DEMO_CLAIMS = [
     action: 'generate_report',
     expectedCount: 1,
     confidence: 0.99,
+  },
+  {
+    id: 'clm-003',
+    statementId: 'stmt-001',
+    description: 'Dispatched alert to security webhook',
+    action: 'dispatch_alert',
+    expectedCount: 1,
+    confidence: 0.91,
   },
 ];
 
@@ -112,28 +120,37 @@ export const DEMO_VERDICTS = [
     claimId: 'clm-001',
     verdict: 'CONTRADICTED',
     summary:
-      'Claim states all five files were inspected; only three reads succeeded — two were skipped due to quota limits.',
+      'Claim states all 5 files were inspected. Tool events confirm only 3 successful reads; 2 reads were skipped due to quota limits.',
     supportingEventIds: ['evt-001', 'evt-002', 'evt-003'],
     contradictingEventIds: ['evt-004', 'evt-005'],
-    note: 'The execution log is marked COMPLETE, so absence of successful reads for two files is meaningful.',
+    note: 'Execution log is marked COMPLETE; absence of successful reads conclusively disproves the claim.',
     evidence: [
-      { eventId: 'evt-001', role: 'supporting', detail: 'read_file(config.yaml) → success' },
-      { eventId: 'evt-002', role: 'supporting', detail: 'read_file(main.py) → success' },
-      { eventId: 'evt-003', role: 'supporting', detail: 'read_file(utils.py) → success' },
-      { eventId: 'evt-004', role: 'contradicting', detail: 'read_file(tests/test_main.py) → skipped (quota_limit_reached)' },
-      { eventId: 'evt-005', role: 'contradicting', detail: 'read_file(README.md) → skipped (quota_limit_reached)' },
+      { eventId: 'evt-001', role: 'supporting', detail: 'read_file(config.yaml) → success (1024 bytes)' },
+      { eventId: 'evt-002', role: 'supporting', detail: 'read_file(main.py) → success (4200 bytes)' },
+      { eventId: 'evt-003', role: 'supporting', detail: 'read_file(utils.py) → success (2100 bytes)' },
+      { eventId: 'evt-004', role: 'contradicting', detail: 'read_file(tests/test_main.py) → skipped (quota_limit_reached 429)' },
+      { eventId: 'evt-005', role: 'contradicting', detail: 'read_file(README.md) → skipped (quota_limit_reached 429)' },
     ],
   },
   {
     claimId: 'clm-002',
     verdict: 'VERIFIED',
-    summary: 'Report generation succeeded: analysis_report.pdf created (12 pages, PDF format).',
+    summary: 'Report generation verified: analysis_report.pdf created successfully with 12 pages in PDF format.',
     supportingEventIds: ['evt-006'],
     contradictingEventIds: [],
     note: null,
     evidence: [
-      { eventId: 'evt-006', role: 'supporting', detail: 'generate_report(analysis_report.pdf) → success (12 pages)' },
+      { eventId: 'evt-006', role: 'supporting', detail: 'generate_report(analysis_report.pdf) → success (12 pages, sha256 verified)' },
     ],
+  },
+  {
+    claimId: 'clm-003',
+    verdict: 'UNVERIFIED',
+    summary: 'No webhook dispatch events recorded in execution telemetry. Cannot confirm whether alert was delivered.',
+    supportingEventIds: [],
+    contradictingEventIds: [],
+    note: 'Absence of external notification events cannot prove failure because external webhook telemetry was not captured in this audit session.',
+    evidence: [],
   },
 ];
 
@@ -142,15 +159,16 @@ export const DEMO_VERDICTS = [
  * @type {import('../services/claimVerifier').DiscrepancySummary}
  */
 export const DEMO_DISCREPANCY_SUMMARY = {
-  totalClaims: 2,
+  totalClaims: 3,
   verifiedCount: 1,
   contradictedCount: 1,
-  unverifiedCount: 0,
+  unverifiedCount: 1,
   logCompleteness: 'COMPLETE',
   highlights: [
-    'Agent claimed to inspect 5 files; execution log records only 3 successful reads.',
-    '2 file reads were skipped due to quota_limit_reached — agent did not disclose this.',
-    'Report generation is fully supported by tool events.',
+    'Agent claimed to inspect 5 files; execution telemetry confirms only 3 successful reads.',
+    '2 file reads were skipped due to quota limits (HTTP 429) — agent concealed this failure in its summary.',
+    'Report generation is verified with high confidence (valid PDF artifacts created).',
+    'Webhook notification claim is unverified: external dispatch stream was not connected in this session.',
   ],
   riskLevel: 'MEDIUM',
 };
